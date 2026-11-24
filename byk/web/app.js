@@ -17,6 +17,9 @@ const date = (ts) =>
     timeZone: "Europe/Moscow",
     dateStyle: "long",
   }).format(ts * 1000);
+const reviewDate = new Intl.DateTimeFormat("ru-RU", {
+  timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", year: "numeric",
+});
 const back = '<a class="back" href="#home">На главную</a>';
 const publicLink = '<a class="foot" href="#public">Публичные оценки</a>';
 async function api(path, body) {
@@ -188,52 +191,65 @@ async function feed(mine, g) {
     '<div id="feed"></div><button hidden id="more">Показать ещё</button>';
   const target = app.querySelector("#feed"),
     more = app.querySelector("#more");
-  let before = "",
-    previous = "";
+  let before = "", currentGroup;
   async function load() {
+    if (more.disabled) return;
     more.disabled = true;
     try {
-      const rows = await api(
-        "reviews?mine=" +
-          (mine ? "1" : "0") +
-          "&before=" +
-          encodeURIComponent(before),
-      );
-      if (g !== generation) return;
-      if (!rows.length && !before) target.textContent = "Пока нет оценок.";
-      for (const r of rows) {
-        const day = date(r.Date);
-        if (day !== previous) {
-          target.insertAdjacentHTML(
-            "beforeend",
-            `<h3 class="date">${day}</h3>`,
-          );
-          previous = day;
-        }
-        target.insertAdjacentHTML(
-          "beforeend",
-          `<article class="review"><h3>${esc(r.Name)}</h3>${mine ? "" : `<small>${esc(r.Author)}</small>`}<p class="metrics"><span>Вкус <b>${r.Taste}/10</b></span><span>Внешний вид <b>${r.Looks}/10</b></span></p>${r.Comment ? `<p class="muted review-comment">${esc(r.Comment)}</p>` : ""}</article>`,
-        );
-        if (mine) {
-          const controls = document.createElement("div");
-          controls.className = "actions";
-          controls.innerHTML = '<button type="button">Изменить</button><button type="button" class="quiet">Удалить</button>';
-          target.lastElementChild.append(controls);
-          controls.firstElementChild.onclick = () => rate(r);
-          controls.lastElementChild.onclick = async () => {
-            if (!window.confirm(`Удалить вашу оценку блюда «${r.Name}»?`)) return;
-            try {
-              await api("reviews/delete", { ID: r.ID });
-              await render();
-            } catch (e) { report(e); }
-          };
-        }
-        before = r.Date + "," + r.ID;
-      }
-      more.hidden = rows.length < 30;
+      do {
+        await loadPage();
+      } while (g === generation && !more.hidden && currentGroup?.open);
     } finally {
       more.disabled = false;
     }
+  }
+  async function loadPage() {
+    const rows = await api(
+      "reviews?mine=" +
+        (mine ? "1" : "0") +
+        "&before=" +
+        encodeURIComponent(before),
+    );
+    if (g !== generation) return;
+    if (!rows.length && !before) target.textContent = "Пока нет оценок.";
+    for (const r of rows) {
+      const day = reviewDate.format(r.Date * 1000);
+      if (currentGroup?.dataset.day !== day) {
+        const group = document.createElement("details");
+        group.dataset.day = day;
+        const summary = document.createElement("summary");
+        summary.className = "date";
+        summary.textContent = day;
+        group.append(summary);
+        target.append(group);
+        currentGroup = group;
+        group.ontoggle = () => {
+          if (group.open && group === currentGroup && !more.hidden && g === generation) {
+            load().catch(report);
+          }
+        };
+      }
+      currentGroup.insertAdjacentHTML(
+        "beforeend",
+        `<article class="review"><h3>${esc(r.Name)}</h3>${mine ? "" : `<small>${esc(r.Author)}</small>`}<p class="metrics"><span>Вкус <b>${r.Taste}/10</b></span><span>Внешний вид <b>${r.Looks}/10</b></span></p>${r.Comment ? `<p class="muted review-comment">${esc(r.Comment)}</p>` : ""}</article>`,
+      );
+      if (mine) {
+        const controls = document.createElement("div");
+        controls.className = "actions";
+        controls.innerHTML = '<button type="button">Изменить</button><button type="button" class="quiet">Удалить</button>';
+        currentGroup.lastElementChild.append(controls);
+        controls.firstElementChild.onclick = () => rate(r);
+        controls.lastElementChild.onclick = async () => {
+          if (!window.confirm(`Удалить вашу оценку блюда «${r.Name}»?`)) return;
+          try {
+            await api("reviews/delete", { ID: r.ID });
+            await render();
+          } catch (e) { report(e); }
+        };
+      }
+      before = r.Date + "," + r.ID;
+    }
+    more.hidden = rows.length < 30;
   }
   more.onclick = () => load().catch(report);
   if (mine) {

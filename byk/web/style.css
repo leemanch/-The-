@@ -249,11 +249,29 @@ article {
   outline-offset: 3px;
 }
 .date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
   font-size: 0.95rem;
   border-bottom: 1px solid #555;
-  padding-bottom: 9px;
+  padding: 10px 4px;
   letter-spacing: 0;
 }
+.date::-webkit-details-marker { display: none; }
+.date::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+details[open] > .date::after { transform: rotate(225deg); }
 .review {
   padding: 12px 0;
   border-bottom: 1px solid #333;
