@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!go.mod
+!go.sum
+!catalog.txt
+!*.go
+!web
+!web/**

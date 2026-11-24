@@ -1,0 +1,25 @@
+services:
+  app:
+    image: the-byk:local
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT:-28741}:8080"
+    environment:
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      GOMEMLIMIT: 80MiB
+      GOMAXPROCS: "2"
+    volumes:
+      - data:/data
+      - ./catalog.txt:/config/catalog.txt:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "2m"
+        max-file: "2"
+volumes:
+  data:
